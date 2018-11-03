@@ -2152,8 +2152,8 @@ xxe.dtd:
     - `<img/src='1'/onerror=alert(0)>`
 ## 其他
 
-- 特殊标籤
-    - 以下标籤中的脚本无法执行
+- 特殊标签
+    - 以下标签中的脚本无法执行
     - `<title>`, `<textarea>`, `<iframe>`, `<plaintext>`, `<noscript>`...
 
 - 伪协议
